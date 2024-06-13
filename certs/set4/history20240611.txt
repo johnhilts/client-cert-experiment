@@ -1,0 +1,53 @@
+    1  cd code/lisp/source/certs/certs/set3/
+    2  ls
+    3  openssl s_server -accept 5010 -cert server.crt -key server.key -CAfile ca.crt -Verify 1 -WWW
+    4  open
+    5  man openssl
+    6  ls ../
+    7  mkdir ../set2 && cd $_
+    8  ls
+    9  openssl s_server -accept 5010 -cert server.crt -key server.key -CAfile ca.crt -Verify 1 -WWW
+   10  cd -
+   11  openssl s_server -accept 5010 -cert server.crt -key server.key -CAfile ca.crt -Verify 1 -WWW
+   12  ls
+   13  openssl s_server -accept 5098 -cert server.crt -key server.key -CAfile ca.crt -Verify 1 -WWW
+   14  openssl verify -CAfile ca.crt server.crt
+   15  openssl x509 -in server.crt -noout -issuer
+   16  openssl verify -CAfile ca.crt -untrusted intermediate.crt server.crt
+   17  openssl verify -CAfile ca.crt server.crt
+   18  ls ../
+   19  mkdir ../set4 && cd $_
+   20  vim san.cnf
+   21  ls
+   22  less ./san.cnf 
+   23  less ./ca.cnf 
+   24  cat ./san.cnf 
+   25  cat ./ca.cnf 
+   26  vim ./san.cnf 
+   27  cat ./san.cnf 
+   28  openssl genrsa -out ca.key 4096
+   29  openssl req -x509 -new -nodes -key ca.key -sha256 -days 1024 -out ca.crt -config ca.cnf
+   30  openssl genrsa -out server.key 2048
+   31  openssl req -new -key server.key -out server.csr -config san.cnf
+   32  openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 500 -sha256 -extfile san.cnf -extensions req_ext
+   33  openssl genrsa -out client.key 2048
+   34  openssl req -new -key client.key -out client.csr -config san.cnf
+   35  openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client.crt -days 500 -sha256 -extfile san.cnf -extensions req_ext
+   36  openssl verify -CAfile ca.crt server.crt
+   37  openssl x509 -in server.crt -noout -issuer
+   38  openssl verify -CAfile ca.crt -untrusted intermediate.crt server.crt
+   39  openssl verify -CAfile ca.crt server.crt
+   40  ls
+   41  openssl pkcs12 -export -out client.p12 -inkey client.key -in client.crt -certfile ca.crt
+   42  ls
+   43  ls -l
+   44  ls -l ../set3
+   45  cp ../set3/index.html ./ -i
+   46  pwd
+   47  openssl x509 -outform der -in client.crt -out client.der
+   48  ls
+   49  openssl x509 -outform der -in server.crt -out server.der
+   50  openssl x509 -outform der -in ca.crt -out ca.der
+   51  ls -R ../
+   52  less ../generate-der-cert.sh
+   53  history > history20240611.txt

@@ -1,0 +1,21 @@
+[ req ]
+default_bits        = 4096
+prompt              = no
+default_md          = sha256
+distinguished_name  = req_distinguished_name
+x509_extensions     = v3_ca
+
+[ req_distinguished_name ]
+C  = US
+ST = Nevada
+L  = Henderson
+O  = SetX CA
+OU = Certification Authority
+CN = SetX CA
+
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
