@@ -20,6 +20,9 @@
   ((%hunchentoot-acceptor
     :reader hunchentoot-acceptor
     :initarg :hunchentoot-acceptor)
+   (%hunchentoot-ssl-acceptor
+    :reader hunchentoot-ssl-acceptor
+    :initarg :hunchentoot-ssl-acceptor)
    (%web-configuration
     :reader web-configuration
     :initarg :web-configuration))
@@ -39,10 +42,10 @@
   (:documentation "Input: web-application objects. Output: #:web-app-stopped. This will stop the web application. The HTTP port will be released."))
 ;; (documentation 'stop-web-app 'function)
 
-(defgeneric make-web-application (tbnl:easy-acceptor web-configuration)
-  (:documentation "Input: hunchentoot easy-acceptor, application-configuration (default settings) object. Output web-application object."))
+(defgeneric make-web-application (tbnl:easy-ssl-acceptor tbnl:easy-acceptor web-configuration)
+  (:documentation "Input: hunchentoot easy-ssl-acceptor, easy-acceptor, application-configuration (default settings) object. Output web-application object."))
 
-(defmethod tbnl:process-request :around ( (*request* tbnl:request))
+(defmethod tbnl:process-request :around ( (tbnl:*request* tbnl:request))
   ;; (setf *sneaky-acceptor* *acceptor*)
   ;; (setf *sneaky-request* *request*)
   ;; (break)
@@ -53,10 +56,12 @@
 (defparameter *sneaky-request* nil)
 (defparameter *sneaky-client-cert* nil)
 
-(defmethod tbnl:handle-request :around ((*acceptor* tbnl:acceptor) (*request* tbnl:request))
+(defclass my-ssl-acceptor (tbnl:easy-ssl-acceptor) ())
+
+(defmethod tbnl:handle-request :around ((tbnl:*acceptor* my-ssl-acceptor) (tbnl:*request* tbnl:request))
   ;; (let ((tbnl::*hunchentoot-stream* (tbnl::content-stream *request*)))
-  (setf *sneaky-acceptor* *acceptor*)
-  (setf *sneaky-request* *request*)
+  (setf *sneaky-acceptor* tbnl:*acceptor*)
+  (setf *sneaky-request* tbnl:*request*)
   ;; (break)
   (setf *sneaky-client-cert* (tbnl:get-peer-ssl-certificate)) ;; get the SAP
   ;; )
@@ -66,8 +71,6 @@
 (define-condition cert-file-missing (file-error)
   ()
   (:report (lambda (condition stream) (format stream "Unable to find certificate folder: ~A." (file-error-pathname condition)))))
-
-(defclass my-ssl-acceptor (tbnl:easy-ssl-acceptor) ())
 
 #|
 To allow more complex recovery protocols, restarts can take arbitrary arguments, which are passed in the call to INVOKE-RESTART.

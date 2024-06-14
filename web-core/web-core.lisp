@@ -21,9 +21,10 @@
 (defmethod print-object ((web-application web-application) stream)
   "Print web application."
   (print-unreadable-object (web-application stream :type t)
-    (with-accessors ((hunchentoot-acceptor hunchentoot-acceptor) (web-configuration web-configuration)) web-application
+    (with-accessors ((hunchentoot-ssl-acceptor hunchentoot-ssl-acceptor) (hunchentoot-acceptor hunchentoot-acceptor) (web-configuration web-configuration))
+        web-application
       (format stream
-	      "Hunchentoot Acceptor: ~a, Configuration: ~a" hunchentoot-acceptor web-configuration))))
+	      "Hunchentoot SSL Acceptor: ~a, Hunchentoot Acceptor: ~a, Configuration: ~a" hunchentoot-ssl-acceptor hunchentoot-acceptor web-configuration))))
 
 (defun make-web-configuration (&optional (ssl-port nil) (http-port 8080) (static-root ""))
   "Get configuration info from the file system and hydrate web-configuration object.
@@ -46,31 +47,59 @@ Output: web-configuration object."
 
 (defmethod start-hunchentoot ((web-configuration web-configuration))
   "start or re-start the hunchentoot web server"
-  (flet ((make-acceptor-instance ()
+  (flet ((make-acceptor-instances ()
            (with-accessors ((ssl-port ssl-port) (http-port http-port)) web-configuration
-             (if ssl-port
-                 ;; (make-instance 'my-ssl-acceptor :port ssl-port :ssl-privatekey-file #P"./certs/server.key" :ssl-certificate-file #P"./certs/server.crt")
-                 (make-instance 'my-ssl-acceptor :port ssl-port :ssl-privatekey-file #P"./certs/set5/server.key" :ssl-certificate-file #P"./certs/set5/server.crt")
-                 (make-instance 'tbnl:easy-acceptor :port http-port)))))
-    (let ((acceptor-instance (make-acceptor-instance)))
+             (values
+              (make-instance 'my-ssl-acceptor :port ssl-port :ssl-privatekey-file #P"./certs/set5/server.key" :ssl-certificate-file #P"./certs/set5/server.crt")
+              (make-instance 'tbnl:easy-acceptor :port http-port))
+             ;; (if ssl-port
+             ;;     ;; (make-instance 'my-ssl-acceptor :port ssl-port :ssl-privatekey-file #P"./certs/server.key" :ssl-certificate-file #P"./certs/server.crt")
+             ;;     (make-instance 'my-ssl-acceptor :port ssl-port :ssl-privatekey-file #P"./certs/set5/server.key" :ssl-certificate-file #P"./certs/set5/server.crt")
+             ;;     (make-instance 'tbnl:easy-acceptor :port http-port))
+             ))
+         (start-hunchentoot-by-http-protocol-type (acceptor-instance acceptor-type) ;; TODO: "acceptor-instance" is redundant!!
+           (prog1
+               (restart-case (tbnl:start acceptor-instance)
+	         (skip-hunchentoot-start ()
+                   :report "Skip starting Web Server (hunchentoot)."
+                   (ecase acceptor-type
+                    (ssl (hunchentoot-ssl-acceptor *web-application*))
+                    (http (hunchentoot-acceptor *web-application*))))
+	         ;; (use-different-port ()
+	         ;;   :report "Use a different port - will increment by 1 from the configured port number."
+	         ;;   ;; (format nil "Use a different port - change from ~d to ~d" (tbnl:acceptor-port acceptor-instance) (1+ (tbnl:acceptor-port acceptor-instance))))
+	         ;;   (with-accessors ((http-port http-port) (ssl-port ssl-port)) web-configuration
+	         ;; 	(start-hunchentoot (make-web-configuration (if ssl-port (1+ ssl-port) nil) (if http-port (1+ http-port) nil)))))
+	         )
+             (format t "~&instance: ~A~%" acceptor-instance))))
+    (multiple-value-bind (ssl-acceptor-instance acceptor-instance)
+        (make-acceptor-instances)
       (prog1
-	  (restart-case (tbnl:start acceptor-instance)
-	    (skip-hunchentoot-start ()
-              :report "Skip starting Web Server (hunchentoot)."
-              (hunchentoot-acceptor *web-application*))
-	    ;; (use-different-port ()
-	    ;;   :report "Use a different port - will increment by 1 from the configured port number."
-	    ;;   ;; (format nil "Use a different port - change from ~d to ~d" (tbnl:acceptor-port acceptor-instance) (1+ (tbnl:acceptor-port acceptor-instance))))
-	    ;;   (with-accessors ((http-port http-port) (ssl-port ssl-port)) web-configuration
-	    ;; 	(start-hunchentoot (make-web-configuration (if ssl-port (1+ ssl-port) nil) (if http-port (1+ http-port) nil)))))
-	    )
-	(format t "~&huncentoot started~%")))))
+	  (list
+           (start-hunchentoot-by-http-protocol-type ssl-acceptor-instance 'ssl)
+           (start-hunchentoot-by-http-protocol-type acceptor-instance 'http))
+        (format t "~&ssl: ~A, reg: ~A~%" ssl-acceptor-instance acceptor-instance)
+        ;; (break)
+	(format t "~&hunchentoot started~%")))))
 
-(defmethod make-web-application ((hunchentoot-acceptor tbnl:easy-acceptor) (web-configuration web-configuration))
+(defun %make-web-application-core (hunchentoot-ssl-acceptor hunchentoot-acceptor web-configuration)
   "Constructor for web-application"
   (make-instance 'web-application
 		 :hunchentoot-acceptor hunchentoot-acceptor
+		 :hunchentoot-ssl-acceptor hunchentoot-ssl-acceptor
 		 :web-configuration web-configuration))
+
+(defmethod make-web-application ((hunchentoot-ssl-acceptor tbnl:easy-ssl-acceptor) (hunchentoot-acceptor tbnl:easy-acceptor) (web-configuration web-configuration))
+  "Constructor for web-application - handles all parameters."
+  (%make-web-application-core hunchentoot-ssl-acceptor hunchentoot-acceptor web-configuration))
+
+(defmethod make-web-application ((hunchentoot-ssl-acceptor tbnl:easy-ssl-acceptor) (hunchentoot-acceptor (eql nil)) (web-configuration web-configuration))
+  "Constructor for web-application - accepts nil for http."
+  (%make-web-application-core hunchentoot-ssl-acceptor hunchentoot-acceptor web-configuration))
+
+(defmethod make-web-application ((hunchentoot-ssl-acceptor (eql nil)) (hunchentoot-acceptor tbnl:easy-acceptor) (web-configuration web-configuration))
+  "Constructor for web-application - accepts nil for ssl."
+  (%make-web-application-core hunchentoot-ssl-acceptor hunchentoot-acceptor web-configuration))
 
 (defparameter *static-path-maps* ())
 
@@ -101,15 +130,23 @@ Output: web-configuration object."
   (setf tbnl:*session-max-time* (* 24 7 60 60))
   (setf tbnl:*rewrite-for-session-urls* nil)
   (add-static-content-handlers)
-  (make-web-application (start-hunchentoot web-configuration) web-configuration))
+  (destructuring-bind
+      (ssl-acceptor acceptor)
+      (start-hunchentoot web-configuration)
+    (format t "~&ssl: ~A, reg: ~A~%" ssl-acceptor acceptor)
+    ;; (break)
+    (make-web-application ssl-acceptor acceptor web-configuration)))
 ;; how to find: (find-method #'start-web-app nil (list (find-class 'application-configuration)))
 
 (defmethod stop-hunchentoot ((web-application web-application))
   "Input: web-application. Stop hunchentoot web-server via the provided web-application object."
-  (restart-case (tbnl:stop (hunchentoot-acceptor web-application))
-    (skip-hunchentoot-start ()
-      :report "Skip stoping Web Server (hunchentoot)."
-      (hunchentoot-acceptor *web-application*))))
+  (flet ((stop-hunchentoot-by-http-protocol-type (acceptor)
+           (restart-case (tbnl:stop acceptor)
+             (skip-hunchentoot-stop ()
+               :report "Skip stopping Web Server (hunchentoot)."
+               acceptor))))
+    (stop-hunchentoot-by-http-protocol-type (hunchentoot-acceptor web-application))
+    (stop-hunchentoot-by-http-protocol-type (hunchentoot-ssl-acceptor web-application))))
 
 (defmethod stop-web-app ((web-application web-application))
   "Input: web-application and application-configuration objects. Output: #:web-app-stopped. This will stop the web application. The HTTP port will be released"
