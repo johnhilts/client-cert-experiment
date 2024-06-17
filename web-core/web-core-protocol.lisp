@@ -45,26 +45,13 @@
 (defgeneric make-web-application (tbnl:easy-ssl-acceptor tbnl:easy-acceptor web-configuration)
   (:documentation "Input: hunchentoot easy-ssl-acceptor, easy-acceptor, application-configuration (default settings) object. Output web-application object."))
 
-(defmethod tbnl:process-request :around ( (tbnl:*request* tbnl:request))
-  ;; (setf *sneaky-acceptor* *acceptor*)
-  ;; (setf *sneaky-request* *request*)
-  ;; (break)
-  (when (next-method-p)
-    (call-next-method)))
-
-(defparameter *sneaky-acceptor* nil)
-(defparameter *sneaky-request* nil)
 (defparameter *sneaky-client-cert* nil)
+(defparameter *client-cert-missing* nil)
 
 (defclass my-ssl-acceptor (tbnl:easy-ssl-acceptor) ())
 
 (defmethod tbnl:handle-request :around ((tbnl:*acceptor* my-ssl-acceptor) (tbnl:*request* tbnl:request))
-  ;; (let ((tbnl::*hunchentoot-stream* (tbnl::content-stream *request*)))
-  (setf *sneaky-acceptor* tbnl:*acceptor*)
-  (setf *sneaky-request* tbnl:*request*)
-  ;; (break)
   (setf *sneaky-client-cert* (tbnl:get-peer-ssl-certificate)) ;; get the SAP
-  ;; )
   (when (next-method-p)
     (call-next-method)))
 
@@ -121,39 +108,40 @@ you could change log-analyzer to this (assuming the existence of a malformed-log
       value)))
 
 
-(defun hash-array->string (array)
-  (let ((res ""))
-    (loop for i across array do
-      (setf res
-            (concatenate 'string
-                         res
-                         (format nil "~2,'0x" i))))
-    res))
-
 (defmethod tbnl:initialize-connection-stream ((acceptor my-ssl-acceptor) stream)
   ;; attach SSL to the stream if necessary
   (let ((my-cert-path (get-my-cert-path)))
-    ;; (break) ;; not getting hit?!?
     (let ((ctx (cl+ssl:make-context :verify-mode cl+ssl:+ssl-verify-peer+
                                     :verify-depth 1
-                                    :verify-location (format nil "~Aca.crt" my-cert-path) ;; client-certificates-directory
-                                    :certificate-chain-file (format nil "~Aca.crt" my-cert-path) ;; "path/to/ca_cert.pem"
+                                    :verify-location (format nil "~Aca.crt" my-cert-path)
+                                    :certificate-chain-file (format nil "~Aca.crt" my-cert-path)
                                     )))
-      ;; (break)
       (print "make server stream ...")
       (cl+ssl:with-global-context (ctx :auto-free-p t)
-        (let* ((server-stream (cl+ssl:make-ssl-server-stream
-                               ;; (usocket:socket-listen "192.168.1.18" 5098)
-                               stream
-                               :certificate (format nil "~Aserver.crt" my-cert-path) ;; "path/to/server_cert.pem"
-                               :key (format nil "~Aserver.key" my-cert-path) ;; "path/to/server_key.pem"
-                               ;; :password "."
-                               ;; :context ctx
-                               ))
-               (client-certificate (cl+ssl:ssl-stream-x509-certificate server-stream))
-               (client-cert-fingerprint (cl+ssl:certificate-fingerprint client-certificate :sha256)))
-          (format t "~&cert: ~A~%" client-certificate)
-          (format t "~&fingerprint: ~A~%" client-cert-fingerprint)
+        (let ((server-stream (cl+ssl:make-ssl-server-stream
+                              stream
+                              :certificate (format nil "~Aserver.crt" my-cert-path)
+                              :key (format nil "~Aserver.key" my-cert-path))))
+          (setf *client-cert-missing* nil)
+          (handler-bind
+              ((sb-sys:memory-fault-error
+                 (lambda (c)
+                   (format t "~&Error signaled: ~A~%" c)
+                   (format t "~&Error context: ~A~%" (sb-sys:system-condition-context c))
+                   (invoke-restart 'client-cert-missing))))
+            (restart-case
+                (let*
+                    ((client-certificate (cl+ssl:ssl-stream-x509-certificate server-stream))
+                     (client-cert-fingerprint (cl+ssl:certificate-fingerprint client-certificate :sha256))
+                     (certificate-not-before-time (cl+ssl:certificate-not-before-time client-certificate))
+                     (certificate-not-after-time (cl+ssl:certificate-not-after-time client-certificate))
+                     (certificate-subject-common-names (cl+ssl:certificate-subject-common-names client-certificate)))
+                  (format t "~&cert: ~A, ~%fingerprint: ~A~%Not before time: ~A~%Not after time: ~A~%Subject common names: ~A~%"
+                          client-certificate client-cert-fingerprint certificate-not-before-time certificate-not-after-time certificate-subject-common-names))
+              (client-cert-missing ()
+                :report "No client certificate provided by the user."
+                (setf *client-cert-missing* t)
+                nil)))
           ;; (let ((data (make-list 2)))
           ;;   (read-sequence data server-stream)
           ;;   (format t
