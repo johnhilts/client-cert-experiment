@@ -51,7 +51,7 @@ Output: web-configuration object."
            (with-accessors ((ssl-port ssl-port) (http-port http-port)) web-configuration
              (values
               (make-instance 'my-ssl-acceptor :port ssl-port :ssl-privatekey-file #P"./certs/set5/server.key" :ssl-certificate-file #P"./certs/set5/server.crt")
-              (make-instance 'tbnl:easy-acceptor :port http-port))
+              (make-instance 'http-to-https-acceptor :port http-port :ssl-port ssl-port))
              ;; (if ssl-port
              ;;     ;; (make-instance 'my-ssl-acceptor :port ssl-port :ssl-privatekey-file #P"./certs/server.key" :ssl-certificate-file #P"./certs/server.crt")
              ;;     (make-instance 'my-ssl-acceptor :port ssl-port :ssl-privatekey-file #P"./certs/set5/server.key" :ssl-certificate-file #P"./certs/set5/server.crt")

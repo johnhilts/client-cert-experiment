@@ -2125,8 +2125,11 @@ Source: Conversation with Copilot, 6/15/2024
     - Make the p12 cert available for download.
 - [ ] Redirect to cert page.
   - Put the instructions for each OS / Browser we know how to support.
-** Cert detected hitting HTTP
+** DONE Cert detected hitting HTTP
 - We would have to test to see if this is even possible.
+  - Narrator: it's not.
+  - Or, maybe we just auto-redirect to SSL no matter what?
+    - Yes.
 ** Cert detected hitting HTTPS
 - [ ] Is cert associated with an active user?
   - [ ] No

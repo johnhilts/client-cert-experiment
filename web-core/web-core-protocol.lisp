@@ -163,3 +163,19 @@ you could change log-analyzer to this (assuming the existence of a malformed-log
         ))))
 
 
+;; (defclass my-acceptor (tbnl:easy-acceptor) ())
+
+(defclass http-to-https-acceptor (tbnl:easy-acceptor)
+  ((%ssl-port
+    :reader ssl-port
+    :initarg :ssl-port)))
+(defmethod tbnl:acceptor-dispatch-request ((acceptor http-to-https-acceptor) request)
+  (if (ssl-port acceptor)
+      (tbnl:redirect (tbnl:request-uri request)
+                     :port (ssl-port acceptor)
+                     :protocol :https)
+      (when (next-method-p)
+        (call-next-method acceptor request))))
+
+
+
