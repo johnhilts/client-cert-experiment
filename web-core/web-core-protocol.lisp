@@ -45,13 +45,27 @@
 (defgeneric make-web-application (tbnl:easy-ssl-acceptor tbnl:easy-acceptor web-configuration)
   (:documentation "Input: hunchentoot easy-ssl-acceptor, easy-acceptor, application-configuration (default settings) object. Output web-application object."))
 
-(defparameter *sneaky-client-cert* nil)
+(defun my-log (string)
+  (with-open-file (out "./log.txt" :direction :output :if-does-not-exist :create :if-exists :append)
+    (prin1 string out)))
+
 (defparameter *client-cert-missing* nil)
 
 (defclass my-ssl-acceptor (tbnl:easy-ssl-acceptor) ())
 
 (defmethod tbnl:handle-request :around ((tbnl:*acceptor* my-ssl-acceptor) (tbnl:*request* tbnl:request))
-  (setf *sneaky-client-cert* (tbnl:get-peer-ssl-certificate)) ;; get the SAP
+  ;; only putting the fingerprint in session for testing purposes - the real code WILL NOT DO THAT
+  ;; (break)
+  (let ((client-id ;; 'abc-123;;
+          (cl+ssl:certificate-fingerprint (tbnl:get-peer-ssl-certificate))
+                   )
+        (the-session (tbnl:start-session)))
+    (setf (tbnl:session-value 'the-client-key the-session) client-id)
+    (setf (tbnl:session-value 'the-session the-session) "4061893-13726-7450288-41758")
+    ;; (my-log (format nil "ClientID,SessionExpiration,CookieValue~%"))
+    (my-log (format nil "From H-R: ~A,~A~%" (tbnl:session-value 'the-client-key the-session) (tbnl:session-cookie-value the-session)))
+    ;; (break)
+    )
   (when (next-method-p)
     (call-next-method)))
 

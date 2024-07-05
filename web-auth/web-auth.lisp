@@ -9,7 +9,10 @@
 
 (defun get-authenticated-user ()
   "Get the authenticated user from server session."
-  (gethash (tbnl:session-value 'the-session) (session-user-map *web-auth-pages*)))
+  ;; (gethash (tbnl:session-value 'the-session) (session-user-map *web-auth-pages*))
+  (let ((the-session (tbnl:start-session)))
+    (jfh-web-core::my-log (format nil "From G-A-U: ~A,~A~%" (tbnl:session-value 'jfh-web-core::the-client-key the-session) (tbnl:session-cookie-value the-session)))
+    (tbnl:session-value 'jfh-web-core::the-session the-session)))
 
 (defmethod establish-user-session ((application-user jfh-app-core:application-user))
   "Establish the user session in Hunchentoot's session apparatus + in cookies.
