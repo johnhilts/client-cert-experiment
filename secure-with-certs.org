@@ -2113,8 +2113,13 @@ Source: Conversation with Copilot, 6/15/2024
 (7) undefined. https://github.com/User/Repo.git.
 * 06/17/2024 New User UI
 ** No certs hitting HTTPS
-- [ ] "Signup here" link.
-  - Redirect to https if necessary.
+- [-] "Signup here" link.
+  - [X] Redirect to https if necessary.
+  - [ ] In tbnl:handle-request, link cert to a session.
+    - [ ] How do we get the user ID?
+      - This is new - we should be able to add a link between the cert and a user ID.
+      - [ ] First time.
+      - [ ] Second time.
 - [ ] Get user info.
   - User input.
     - Email
