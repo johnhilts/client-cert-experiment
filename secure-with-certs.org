@@ -2149,3 +2149,373 @@ Source: Conversation with Copilot, 6/15/2024
 *** Associate a cert with a session
 - Session just stores the user email.
 - We could add another hash table to link session with cert fingerprint.
+* 07/04/2024 authentication use cases
+** Using a client certificate
+*** Configuration
+- [ ] Enable use of client certs.
+  - Implemented by specializing on =my-ssl-acceptor=
+    - =tbnl:handle-request :around=
+    - =tbnl:initialize-connection-stream=
+*** Getting started
+- Site owner generates a certificate.
+  - This could be performed in an admin area!
+- Send the client cert to end user.
+- First visit: the end user is prompted to do a signup.
+  - This should be similar to other user registration.
+    - The difference is that we don't collect a password.
+      - We can auto-generate it, though.
+      - We still need username == email.
+- Second visit: end user is auto-authed.
+** Using login + password
+*** Configuration
+- [ ] Enable use of login / password.
+  - No need to specialize on anything.
+  - Use the built-in tbnl classes.
+*** Getting started
+- Go through a signup UI.
+- Login whenever session has expired.
+* 07/04/2024 protocol thoughts
+** Protocol to ha nanizoya
+- Contract / interface / API
+- Generic functions.
+- Abstract base classes.
+** Protocols
+*** TODO think about!!
+- [ ] I might need to invert the noun-verbs here.
+- [ ] Instead of thinking in terms of *things*, think in terms of *actions*!
+  - [ ] What do I need to do?
+  - [ ] I want to start and stop a web server!
+    - [ ] Associated with configuration.
+  - [ ] I want to authenticate a user!
+  - [ ] I want to create a session!
+    - [ ] Associated with a user!
+  - [ ] I want to start an application!
+    - [ ] Associated with configuration.
+  - [ ] I want to get an +authenticated+ user's information!
+    - Maybe the user isn't necessarily authenticated ...
+*** app-configuration
+- swank-port
+*** web-server-configuration
+- http-port
+- https-port
+*** web-server
+- start
+- stop
+*** web-session
+- create
+- 
+*** web-auth
+- login
+- logoff
+*** application
+- start
+- stop
+* 07/06/2024 protocols
+** Demonstration
+- A simple page that says something like "hello, $name!"
+** web server operations
+*** Additional notes
+- Do we need a "start/stop-hunchentoot" as part of the protocol?!?
+  - Shouldn't we just expose "start/stop-web-server"?
+*** start-server
+*** stop-server
+** application operations
+*** start-application
+- create swank server
+*** stop-application
+- stop swank server
+** file operations
+*** application-file-types
+- unknown
+- small
+- large
+*** read-file
+- defgeneric read-file (path &optional (application-file-type 'unknown))
+*** read entire file
+  - Use a macro to handle the mapping of the file contents to the class.
+    - That way, even a web-user can call the macro and just pass it the fields it wants without needing to know the details of how the information is read from a file
+      - And can work with /any/ data store.
+  - specialize on list (?)
+    - but this would be the return type, so ...
+    - maybe specialize on the file path using eql?
+    - or maybe on some kind of enum?
+*** write entire file
+  - specialize on list
+    - good for working with sexp files
+*** read file line by line
+  - maybe specialize on some kind of enum?
+*** write file line by line
+  - or maybe append?
+  - maybe specialize on some kind of enum?
+** user operations
+*** save user
+*** find user
+- by login
+- by ID
+- by certificate fingerprint
+  - we'll need an index.
+    - and it should be sorted!
+**** Additional notes
+- I think instead of using something like =register-web-auth-functions= we can rely on class specialization.
+  - It will make navigation easier too.
+* 07/06/2024 Kindle example
+** original
+*** raw
+"************************
+JFH-KINDLE-NOTES
+************************
+FETCH-NOTES
+FORMAT-OBJECT
+KINDLE-ENTRY
+PRINT-OBJECT
+SHOW-TIP-OF-THE-DAY
+************************
+JFH-KINDLE-NOTES-WEB-APP
+************************
+*STATIC-PATHS-MAPS*
+*WEB-CONFIGURATION*
+FETCH-NOTES
+FIND-USER-INFO
+FORMAT-OBJECT
+KINDLE-ENTRY
+LOGIN-PAGE
+ON-AUTH-HOOK
+PRINT-OBJECT
+SHOW-AUTH-FAILURE
+SHOW-TIP-OF-THE-DAY
+SIGNUP-PAGE
+************************
+JFH-WEB-CORE
+************************
+*STATIC-PATHS-MAPS*
+*WEB-CONFIGURATION*
+ADD-STATIC-PATH-MAP
+DEFINE-API-ENDPOINT
+FETCH-NOTES
+FIND-USER-INFO
+FORMAT-OBJECT
+KINDLE-ENTRY
+LOGIN-PAGE
+ON-AUTH-HOOK
+PRINT-OBJECT
+SHOW-AUTH-FAILURE
+SHOW-TIP-OF-THE-DAY
+SIGNUP-PAGE
+STATIC-ROOT
+STOP-WEB-APP
+VERB
+WEB-APPLICATION-SHELL
+WEB-CONFIGURATION
+************************
+JFH-APP-CORE
+************************
+*STATIC-PATHS-MAPS*
+*WEB-CONFIGURATION*
+ADD-STATIC-PATH-MAP
+APPLICATION-CONFIGURATION
+APPLICATION-META-USER
+APPLICATION-SECURE-USER
+APPLICATION-USER
+DEFINE-API-ENDPOINT
+FETCH-NOTES
+FIND-SECURE-USER-INFO
+FIND-USER-INFO
+FIND-USER-INFO
+FIND-USER-PATH
+FORMAT-OBJECT
+KINDLE-ENTRY
+LOGIN-PAGE
+MAKE-APPLICATION-CONFIGURATION
+MAKE-APPLICATION-USER
+ON-AUTH-HOOK
+PRINT-OBJECT
+READ-USER-INFO
+SAVE-APPLICATION-USER
+SAVE-NEW-APPLICATION-USER
+SAVE-USER
+SETTINGS-FILE-PATH
+SHOW-AUTH-FAILURE
+SHOW-TIP-OF-THE-DAY
+SIGNUP-PAGE
+START-SWANK
+STATIC-ROOT
+STOP-SWANK
+STOP-WEB-APP
+SWANK-INTERFACE
+SWANK-PORT
+USER-ID
+USER-LOGIN
+USER-PASSWORD
+USER-PATH-ROOT
+VERB
+WEB-APPLICATION-SHELL
+WEB-CONFIGURATION
+************************
+JFH-UTILITY
+************************
+*STATIC-PATHS-MAPS*
+*WEB-CONFIGURATION*
+ADD-STATIC-PATH-MAP
+APPLICATION-CONFIGURATION
+APPLICATION-META-USER
+APPLICATION-SECURE-USER
+APPLICATION-USER
+DEFINE-API-ENDPOINT
+FETCH-NOTES
+FETCH-OR-CREATE-DATA
+FIND-SECURE-USER-INFO
+FIND-USER-INFO
+FIND-USER-INFO
+FIND-USER-PATH
+FORMAT-OBJECT
+GENERATE-UNIQUE-TOKEN
+HASH-PASSWORD
+KINDLE-ENTRY
+LOGIN-PAGE
+MAKE-APPLICATION-CONFIGURATION
+MAKE-APPLICATION-USER
+ON-AUTH-HOOK
+PRINT-OBJECT
+READ-COMPLETE-FILE
+READ-USER-INFO
+SAVE-APPLICATION-USER
+SAVE-NEW-APPLICATION-USER
+SAVE-USER
+SERIALIZE-TO-JSON
+SETTINGS-FILE-PATH
+SHOW-AUTH-FAILURE
+SHOW-TIP-OF-THE-DAY
+SIGNUP-PAGE
+START-SWANK
+STATIC-ROOT
+STOP-SWANK
+STOP-WEB-APP
+STRING-STARTS-WITH
+SWANK-INTERFACE
+SWANK-PORT
+USER-ID
+USER-LOGIN
+USER-PASSWORD
+USER-PATH-ROOT
+VERB
+WEB-APPLICATION-SHELL
+WEB-CONFIGURATION
+WRITE-COMPLETE-FILE
+"
+*** tables
+**** JFH-APP-CORE
+| form                           | protocol | class | other | Exported? | changes            | new                                  | internal |
+|                                |          |       |       |           |                    | package                              | (new)    |
+|--------------------------------+----------+-------+-------+-----------+--------------------+--------------------------------------+----------|
+| *STATIC-PATHS-MAPS*            |          |       | X     | N         | N/A                |                                      |          |
+| *WEB-CONFIGURATION*            |          | X     |       |           |                    | jfh-application-base                 |          |
+| APPLICATION-CONFIGURATION      |          | X     |       |           |                    |                                      |          |
+| APPLICATION-META-USER          |          | X     |       |           |                    |                                      |          |
+| APPLICATION-SECURE-USER        |          | X     |       |           |                    |                                      |          |
+| APPLICATION-USER               |          | X     |       |           |                    |                                      |          |
+| DEFINE-API-ENDPOINT            |          |       | X     |           | N/A                |                                      |          |
+| FETCH-NOTES                    |          |       | X     |           | N/A                |                                      |          |
+| FIND-SECURE-USER-INFO          | X        |       |       |           |                    | jfh-application-user                 |          |
+| FIND-USER-INFO                 | X        |       |       |           |                    | jfh-application-user                 |          |
+| FIND-USER-INFO                 | X        |       |       |           |                    | jfh-application-user                 |          |
+| FIND-USER-PATH                 | X        |       |       |           |                    | jfh-application-user                 |          |
+| FORMAT-OBJECT                  | X        |       |       |           | N/A                | jfh-application-user                 |          |
+| MAKE-APPLICATION-CONFIGURATION |          |       | X     |           |                    |                                      |          |
+| MAKE-APPLICATION-USER          |          |       | X     |           |                    |                                      |          |
+| ON-AUTH-HOOK                   |          |       | X     |           | N/A                |                                      |          |
+| PRINT-OBJECT                   | X        |       |       |           |                    | jfh-application-user, -configuration |          |
+| READ-USER-INFO                 | X        |       |       |           | use model argument | jfh-application-user                 |          |
+| SAVE-APPLICATION-USER          | X        |       |       |           |                    | jfh-application-user                 |          |
+| SAVE-NEW-APPLICATION-USER      | X        |       |       |           |                    | jfh-application-user                 |          |
+| SAVE-USER                      | X        |       |       |           |                    | jfh-application-user                 |          |
+| SETTINGS-FILE-PATH             |          |       | X     | Y         |                    |                                      |          |
+| SHOW-AUTH-FAILURE              |          |       | X     |           | use CLOS instead   |                                      |          |
+| START-SWANK                    | X        |       |       |           |                    | jfh-application                      |          |
+| STATIC-ROOT                    |          |       | X     |           |                    |                                      |          |
+| STOP-SWANK                     | X        |       |       |           |                    | jfh-application                      |          |
+| SWANK-INTERFACE                |          |       | X     |           |                    |                                      |          |
+| SWANK-PORT                     |          |       | X     |           |                    |                                      |          |
+| USER-ID                        |          |       | X     |           |                    |                                      |          |
+| USER-LOGIN                     |          |       | X     |           |                    |                                      |          |
+| USER-PASSWORD                  |          |       | X     |           |                    |                                      |          |
+| USER-PATH-ROOT                 |          |       | X     |           |                    |                                      |          |
+| WEB-CONFIGURATION              | X        | X     |       |           |                    |                                      |          |
+**** jfh-web-core
+| form                  | protocol | class | other | Exported? | changes            | new                 | internal |
+|                       |          |       |       |           |                    | package             | (new)    |
+|-----------------------+----------+-------+-------+-----------+--------------------+---------------------+----------|
+| ADD-STATIC-PATH-MAP   |          |       | X     |           | use model argument | jfh-application-web |          |
+| PRINT-OBJECT          | X        |       |       |           |                    | jfh-application-web |          |
+| STATIC-ROOT           |          |       | X     | Y         |                    | jfh-application-web |          |
+| WEB-APPLICATION-SHELL |          |       | X     | Y         |                    | jfh-application-web |          |
+| STOP-WEB-APP          | X        |       |       | Y         |                    | jfh-application-web |          |
+| WEB-CONFIGURATION     |          | X     |       | Y         |                    | jfh-application-web |          |
+| DEFINE-API-ENDPOINT   |          |       | X     | Y         |                    | cjfh-application-web |          |
+**** jfh-web-auth
+| form                       | protocol | class | other | Exported? | changes | new     | internal |
+|                            |          |       |       |           |         | package | (new)    |
+|----------------------------+----------+-------+-------+-----------+---------+---------+----------|
+| *WEB-AUTH-PAGES*           |          |       |       |           |         |         |          |
+| AUTHENTICATED-USER         |          |       |       |           |         |         |          |
+| DEFINE-PROTECTED-PAGE      |          |       |       |           |         |         |          |
+| ESTABLISH-USER-SESSION     |          |       |       |           |         |         |          |
+| FIND-USER-INFO             |          |       |       |           |         |         |          |
+| GET-AUTHENTICATED-USER     |          |       |       |           |         |         |          |
+| LOGIN-PAGE                 |          |       |       |           |         |         |          |
+| LOGOUT-PAGE                |          |       |       |           |         |         |          |
+| SHOW-AUTH-FAILURE          |          |       |       |           |         |         |          |
+| SIGNUP-PAGE                |          |       |       |           |         |         |          |
+| USE-WEB-AUTH               |          |       |       |           |         |         |          |
+| VALIDATE-SIGNUP-PARAMETERS |          |       |       |           |         |         |          |
+| WEB-AUTH-PAGES             |          |       |       |           |         |         |          |
+** refactored
+*** jfh-store
+**** files in store
+- file-io.lisp
+- store.lisp
+- store-protocol.lisp
+- store-implementation.lisp
+**** table
+| form                          | Export? | type     | parameters          | Notes                                                                   |
+|-------------------------------+---------+----------+---------------------+-------------------------------------------------------------------------|
+| read-complete-file            | N       | function |                     |                                                                         |
+| write-complete-file           | N       | function |                     |                                                                         |
+| make-instance-from-data-store | Y       | function |                     |                                                                         |
+| data-store-location           | Y       | class    |                     | To remove dependency on app-config                                      |
+| get-data-store-location       | Y       | generic  | data-store-location | *Not* user specific, but the argument can make have user-specific info! |
+*** jfh-user
+**** files in user
+- user-protocol.lisp
+- user-implementation.lisp
+- user.lisp
+**** table
+| form                      | Export? | type     | parameters | Notes           |
+|---------------------------+---------+----------+------------+-----------------|
+| find-user-info            | Y       | function |            | rename to "get" |
+| application-meta-user     | Y       | class    |            |                 |
+| application-secure-user   | Y       | class    |            |                 |
+| application-user          | Y       | class    |            |                 |
+| find-secure-user-info     | Y       | function |            | rename to "get" |
+| make-application-user     | Y       | function |            |                 |
+| read-user-info            | Y       | function |            | Obsolete?       |
+| save-application-user     | Y       | generic  |            |                 |
+| save-new-application-user | Y       | generic  |            |                 |
+| save-user                 | Y       | generic  |            |                 |
+*** jfh-configuration
+- Can we re-use jfh-store?
+  - Just what's exported?
+*** jfh-remoting
+- use eql specializers on "swank".
+  - It will facilitate swapping for sly or whatever else.
+*** jfh-web-server
+**** Thoughts
+- We can't hide hunchentoot.
+  - But can we keep things like "acceptor" from leaking beyond the package that's using it?
+**** Files in web-server
+- web-server-protocol.lisp
+- web-server-implementation.lisp
+- web-server.lisp
+* 07/08/2024 protocol organization
+** file-operations
+*** read-complete-file
+*** write-complete-file

@@ -117,18 +117,32 @@
   (let ((user-info (make-application-user user-id)))
     (jfh-utility:read-complete-file (format nil "~A/~A" (find-user-path user-info (make-application-configuration)) file-name))))
 
-(defun find-user-info (user-login)
+(defun find-user-info-old (user-login)
   "Search for user info in file system."
   (let* ((user-index-entry (find-user-index-entry user-login (make-application-configuration))) ;; TODO don't remake the configuration!!
          (user-id (getf user-index-entry :user-id)))
     (when user-id
       (user-entry->application-user (read-user-info user-id "user.sexp")))))
 
-(defun find-secure-user-info (user-login)
+(defun find-user-info (user-login)
+  "Search for user info in file system."
+  (let* ((user-index-entry (find-user-index-entry user-login (make-application-configuration))) ;; TODO don't remake the configuration!!
+         (user-id (getf user-index-entry :user-id)))
+    (when user-id
+      (make-instance-from-data-store 'application-meta-user (list :user-id '? :user-login '? :create-date '? :disable '?) user-id))))
+
+(defun find-secure-user-info-old (user-login)
   "Search for secure user info in file system."
   (let* ((application-user (find-user-info user-login)))
     (when application-user
       (user-entry->application-secure-user application-user (read-user-info (user-id application-user) "hash.sexp")))))
+
+(defun find-secure-user-info (user-login)
+  "Search for secure user info in file system."
+  (let* ((application-user (find-user-info user-login)))
+    (when application-user
+      (let ((user-id (user-id application-user)))
+        (make-instance-from-data-store 'application-secure-user (list :user-id user-id :user-login (user-login application-user) :user-password '?) user-id)))))
 
 (defmethod find-user-index-entry (user-login (application-configuration application-configuration))
   "Input: User ID and app-configuration. Output: user index entry."
@@ -136,3 +150,47 @@
          (user-index-file-path (get-user-index-file-path user-path-root))
 	 (user-index (jfh-utility:fetch-or-create-data user-index-file-path)))
     (find-if (lambda (entry) (string= (getf entry :user-login) user-login)) user-index)))
+
+(defgeneric get-user-data-store-location (id application-configuration))
+
+(defmethod get-user-data-store-location (user-id (application-configuration application-configuration))
+  "Input: ID and app-configuration. Output: file path."
+  (with-accessors ((user-path-root user-path-root)) application-configuration
+    (format nil "~A~A/" user-path-root user-id)))
+;; example: (jfh-app-core::get-user-data-store-location "abc-123" (jfh-app-core:application-configuration (jfh-web-core:web-configuration *WEB-APPLICATION*)))
+
+(defun find-and-replace-missing-values (initargs fill-in-values)
+  "Input: 1st plist, where some values are '?, 2nd plist which has fill-in values for '? in the 1st plist. Ouptput: the 1st plist modified to replace '? with a fill-in-value."
+  (loop for initarg in initargs
+        when (and
+              (symbolp (getf initargs initarg))
+              (string= "?" (symbol-name (getf initargs initarg))))
+          do
+             (setf (getf initargs initarg) (getf fill-in-values initarg)))
+  initargs)
+
+(defparameter *application-configuration* nil)
+;; (setf jfh-app-core::*application-configuration*  (jfh-app-core:application-configuration (jfh-web-core:web-configuration *WEB-APPLICATION*)))
+
+(defun make-instance-from-data-store (class-name initargs id &optional (configuration *application-configuration*) (get-data-store-location #'get-user-data-store-location))
+  "Input: class and its initarg names+values and an ID. Output: object using make-instance `class-name` with data from parameters + data store."
+  (let* ((file-name (format nil "~(~A~).sexp" class-name))
+         (file-path (funcall get-data-store-location id configuration))
+         (entry (jfh-utility:read-complete-file (format nil "~A~A" file-path file-name)))
+         (initargs-no-missing-values (find-and-replace-missing-values initargs entry)))
+    (apply #'make-instance class-name initargs-no-missing-values)))
+
+(defun make-instance-from-data-store-index (index-name class-name initargs &optional (configuration *application-configuration*))
+  "Input: class and its initarg names+values and an ID. Output: object using make-instance `class-name` with data from parameters + data store."
+  (let* ((file-name (format nil "~(~A~).sexp" index-name))
+         (file-path (format nil "~A~A" (user-path-root configuration) file-name))
+         (complete-index (jfh-utility:read-complete-file file-path))
+         ;; (initargs-no-missing-values (find-and-replace-missing-values initargs entry))
+         (initarg-keys (loop for keys = initargs then (cddr keys)
+                             for key = (car keys)
+                             while keys
+                             collect key))
+         (index-entry (find-if (lambda (entry)  (every (lambda (key) (string= (getf entry key) (getf initargs key))) initarg-keys)) complete-index)))
+    (if index-entry
+        (apply #'make-instance class-name index-entry)
+        (format nil "~&File-path: ~A~%complete index: ~A~%keys: ~A" file-path complete-index initarg-keys))))
